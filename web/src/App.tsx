@@ -40,6 +40,7 @@ import {
   type EvaluationUrlState,
   type OverviewUrlState,
 } from "./url";
+import logo from "./assets/logo.png";
 
 const STATUS_LABEL: Record<TraceStatus, string> = {
   completed: "완료",
@@ -1137,7 +1138,7 @@ export function App() {
       <header className="app-header">
         <a className="brand" href="/" aria-label={`${APP_TITLE} 홈`}>
           <span className="brand-mark" aria-hidden="true">
-            LF
+            <img src={logo} alt="" style={{ width: "100%", height: "100%", objectFit: "contain" }} />
           </span>
           <strong>{APP_TITLE}</strong>
         </a>

@@ -90,12 +90,12 @@ pre,
 
 .brand-mark {
   display: grid;
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   place-items: center;
   border-radius: 9px;
   color: #fff;
-  background: #2563eb;
+  background: #fff;
   font-size: 0.64rem;
   font-weight: 800;
   letter-spacing: 0.04em;
