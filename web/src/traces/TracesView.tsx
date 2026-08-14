@@ -838,6 +838,15 @@ export function TracesView({
           />
         </label>
         <div className="filter-actions">
+          <button
+            className="lf-btn"
+            type="button"
+            aria-label={t("Trace 목록 새로고침")}
+            disabled={listState === "loading"}
+            onClick={() => setListRetry((value) => value + 1)}
+          >
+            {t("새로고침")}
+          </button>
           {split ? (
             <button
               className="lf-btn filter-toggle"
@@ -1195,6 +1204,7 @@ export function TracesView({
           onNavigate={onSelectTrace}
           onTargets={(panel) => void openTargets(panel)}
           onDelete={() => void deleteSelectedTrace()}
+          showGraph={split || stackedPane === "graph"}
           asPane
         />
       </aside>
@@ -1605,6 +1615,7 @@ function DrawerContent({
   onNavigate,
   onTargets,
   onDelete,
+  showGraph = true,
   readOnly = false,
   asPane = false,
   downstreamLlmInput = null,
@@ -1646,6 +1657,7 @@ function DrawerContent({
   onNavigate: (id: string) => void;
   onTargets: (panel: TargetPanel) => void;
   onDelete: () => void;
+  showGraph?: boolean;
   readOnly?: boolean;
   /** 목록을 덮지 않는 단이면 true. 닫을 것이 없으므로 닫기 버튼을 두지 않는다. */
   asPane?: boolean;
@@ -1778,11 +1790,13 @@ function DrawerContent({
             <div className="detail-grid">
               <section className="detail-card">
                 <h3>{t("실행 흐름")}</h3>
-                <RuntimeGraphView
-                  observations={detail.observations}
-                  selectedObservationId={observationId}
-                  onSelect={setObservationId}
-                />
+                {showGraph ? (
+                  <RuntimeGraphView
+                    observations={detail.observations}
+                    selectedObservationId={observationId}
+                    onSelect={setObservationId}
+                  />
+                ) : null}
               </section>
               <section className="detail-card">
                 <h3 className="io-card-head">

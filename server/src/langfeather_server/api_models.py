@@ -511,6 +511,7 @@ class ExperimentResultInput(ApiModel):
     evaluator_key: str = Field(min_length=1, max_length=128)
     value: bool | int | float | None = None
     error_message: str | None = None
+    rationale: str | None = None
 
     @model_validator(mode="after")
     def require_result_or_error(self) -> ExperimentResultInput:
@@ -521,6 +522,8 @@ class ExperimentResultInput(ApiModel):
             )
         if isinstance(self.value, float) and not math.isfinite(self.value):
             raise ValueError("evaluator result must be finite")
+        if self.rationale is not None and (not has_value or self.value is None):
+            raise ValueError("evaluator rationale requires a successful value")
         return self
 
 
@@ -548,6 +551,7 @@ class ExperimentResultResponse(ApiModel):
     evaluator_key: str
     value: bool | float | None = None
     error_message: str | None = None
+    rationale: str | None = None
 
 
 class ExperimentCaseResponse(ApiModel):
@@ -568,6 +572,10 @@ class ExperimentCaseResponse(ApiModel):
 
 class ExperimentFinishRequest(ApiModel):
     status: Literal["completed", "cancelled"]
+
+
+class ExperimentResumeRequest(ApiModel):
+    retry_failed: bool = False
 
 
 class ExperimentSummary(ApiModel):

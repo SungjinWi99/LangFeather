@@ -54,6 +54,7 @@ from langfeather_server.api_models import (
     ExperimentFinishRequest,
     ExperimentListResponse,
     ExperimentResponse,
+    ExperimentResumeRequest,
     HealthResponse,
     ObservationDetail,
     ResetRequest,
@@ -879,6 +880,20 @@ def create_app(
         store: RepositoryDependency,
     ) -> ExperimentResponse:
         return store.finish_experiment(experiment_id, request_body.status)
+
+    @application.post(
+        "/api/v1/experiments/{experiment_id}/resume",
+        response_model=ExperimentResponse,
+        dependencies=[Depends(_require_json_content_type)],
+    )
+    def resume_experiment(
+        experiment_id: str,
+        request_body: ExperimentResumeRequest,
+        store: RepositoryDependency,
+    ) -> ExperimentResponse:
+        return store.resume_experiment(
+            experiment_id, retry_failed=request_body.retry_failed
+        )
 
     @application.get("/api/v1/admin/backup")
     def download_backup(

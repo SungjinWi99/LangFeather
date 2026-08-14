@@ -21,12 +21,12 @@ data 의미는 `specs/data-contract.md`가 우선한다.
 - 네 기능이 흡수하는 화면은 다음과 같다. 화면의 기능 자체는 바뀌지 않고 어디에서
   접근하는지만 바뀐다.
 
-| top-level | 흡수하는 화면 | 내부 구성 |
-| --- | --- | --- |
-| Traces | Traces | 목록, 실행 graph, payload (3분할) |
-| Overview | Overview | 기간 filter, chart board, 최근 trace |
-| Evaluate | Evaluation, Annotation Queues, Scores | Examples / Experiments / Queues / Scores 세그먼트 |
-| Settings | Local Data | 백업, 초기화 |
+| top-level | 흡수하는 화면                         | 내부 구성                                         |
+| --------- | ------------------------------------- | ------------------------------------------------- |
+| Traces    | Traces                                | 목록, 실행 graph, payload (3분할)                 |
+| Overview  | Overview                              | 기간 filter, chart board, 최근 trace              |
+| Evaluate  | Evaluation, Annotation Queues, Scores | Examples / Experiments / Queues / Scores 세그먼트 |
+| Settings  | Local Data                            | 백업, 초기화                                      |
 
 - Evaluate의 세그먼트는 넷이다. dataset 안에 다시 탭을 두면 같은 여정이 두 겹으로
   갈라지므로, Examples와 Experiments를 세그먼트로 올린다. 어느 dataset을 보고
@@ -165,6 +165,8 @@ state를 제공한다.
 - 상단 타이틀 옆 건수는 현재 page의 표시 개수가 아니라 필터에 일치하는 전체
   `total_count`다.
 - loading, filtered/unfiltered empty, error, retry 상태를 구분한다.
+- 필터 줄의 수동 새로고침은 목록만 다시 요청하며 loading 중 disabled다. error에서도 같은
+  action이 retry 역할을 하고, 자동 polling이나 새 trace badge는 제공하지 않는다.
 - 컬럼 순서/폭 조절, 정렬은 "표 공통 동작"을 따른다. 수집 시각 컬럼은 상대 시간이
   아니라 `MM/DD H:MM AM/PM` 형식의 정확한 시각을 보여준다.
 - 넓은 화면의 trace 카드에는 provider가 제공한 trace 전체 token 합계와 trace 시작
@@ -230,9 +232,18 @@ state를 제공한다.
   그 외 kind는 generic으로 안전하게 표시한다.
 - summary mode가 있다면 root, root의 직접 child, 명시적 dispatch가 있는 실행을
   중심으로 접을 수 있지만 원본 observation 관계를 바꾸지 않는다.
-- 각 node는 실행 순서(현재 그래프에서 정렬된 위치의 1-based 번호)와 kind label을
-  header에, observation 이름을 본문에, status(완료/실패/취소)와 latency를 footer
-  좌우에 보여준다. root/실패 node는 header 배경 색으로 구분한다.
+- root observation은 일반 실행 node가 아니라 현재 표시된 하위 node를 감싸는 점선
+  실행 경계로 그린다. root selection action은 경계 좌상단에 겹치고 점선이 하단을
+  지나는 같은 점선 테두리의 index tab으로 배치하며 observation 이름과 latency만
+  내용 폭에 맞춰 보여준다.
+  keyboard로 선택하면 같은 selection state를 통해 전체 input/output payload를 연다.
+- 선택한 일반 node는 카드 테두리와 함께 순서 표시의 accent 채움으로 구분한다. 이
+  강조는 badge의 layout 크기를 바꾸지 않는다. 선택한 root index는 tab 테두리와 점선
+  실행 경계 색으로 구분한다.
+- 나머지 node는 현재 그래프에서 정렬된 위치의 1-based 번호와 kind label을 header에,
+  observation 이름을 본문에,
+  status(완료/실패/취소)와 latency를 footer 좌우에 보여준다. 실패 node는 header
+  배경 색으로 구분한다.
 
 ### payload inspector
 
@@ -433,6 +444,8 @@ server는 evaluator를 실행하지 않으며 experiment는 사용자 Python pro
   metadata/evaluator 결과/duration을 컬럼으로 보여주는 표를 제공한다. 이 표도
   "표 공통 동작"(컬럼 순서/폭/정렬)을 따르며, evaluator 컬럼은 experiment마다
   달라 experiment가 바뀌면 컬럼 상태를 새로 초기화한다.
+- evaluator result에 raw rationale이 있으면 값 아래 native disclosure `근거 보기`로
+  접어 보여 준다. 이 텍스트는 자동 redact, truncate, summarize하지 않는다.
 - JSON evidence는 접고 펼치며 복사할 수 있다.
 - experiment가 없으면 Python SDK `evaluate` 실행 예제를 복사할 수 있게 제공한다.
 

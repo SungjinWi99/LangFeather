@@ -452,6 +452,7 @@ class ExperimentResultRow(Base):
     boolean_value: Mapped[bool | None] = mapped_column(nullable=True)
     number_value: Mapped[float | None] = mapped_column(Float, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     __table_args__ = (
         UniqueConstraint(

@@ -322,7 +322,6 @@ textarea:focus-visible,
   backdrop-filter: blur(12px);
 }
 
-
 /* 레퍼런스 로고의 비율을 그대로 옮긴다 — 깃털 높이 : 워드마크 크기 ≈ 1.4,
    둘 사이는 깃털 높이의 1/4. 여기서 셋을 함께 정해야 비율이 어긋나지 않는다. */
 .lf-brand {
@@ -1622,11 +1621,11 @@ th.col-draggable {
     flex: none;
     display: flex;
   }
-  /* 접힌 동안 적용은 Enter가 맡는다. 초기화는 필터를 펴야 보인다. */
+  /* 접힌 동안 적용은 Enter가 맡고, 초기화는 필터를 펴야 보인다. */
   .traces-page.is-split
     .filter-panel.is-collapsed
     .filter-actions
-    .lf-btn:not(.filter-toggle) {
+    .lf-btn:is(.is-primary, [type="reset"]) {
     display: none;
   }
   /* 좁은 열에서는 filter를 세로로 쌓는다. 가로 6열은 버튼 라벨을 쪼갠다. */
@@ -1711,8 +1710,8 @@ th.col-draggable {
 .graph-detail-toggle {
   position: absolute;
   z-index: 5;
-  top: 10px;
-  left: 10px;
+  top: -43px;
+  right: 10px;
   display: flex;
   gap: 2px;
   padding: 2px;
@@ -2214,6 +2213,50 @@ th.col-draggable {
   opacity: 0.35;
   pointer-events: none;
 }
+.runtime-graph .react-flow__node-runtimeRoot {
+  pointer-events: none;
+}
+.runtime-root-frame {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.runtime-root-frame::before {
+  position: absolute;
+  inset: 34px 0 0;
+  border: 1px dashed var(--accent-border);
+  border-radius: 10px;
+  content: "";
+  pointer-events: none;
+}
+.runtime-root-frame[data-selected="true"]::before {
+  border-color: var(--accent);
+}
+.runtime-root-frame[data-status="failed"]::before {
+  border-color: var(--red);
+}
+.runtime-root-trigger {
+  position: absolute;
+  z-index: 1;
+  top: 0;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  width: max-content;
+  max-width: calc(100% - 32px);
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px dashed var(--accent-border);
+  border-radius: 6px;
+  color: var(--ink);
+  background: var(--surface);
+  font: inherit;
+  text-align: left;
+  pointer-events: auto;
+  cursor: pointer;
+  gap: 12px;
+}
 .runtime-node {
   display: grid;
   width: 184px;
@@ -2226,6 +2269,44 @@ th.col-draggable {
   box-shadow: var(--shadow-2);
   gap: 6px;
 }
+.runtime-root-trigger:hover {
+  border-color: var(--accent-border);
+}
+.runtime-root-trigger[aria-pressed="true"] {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--selection-soft);
+}
+.runtime-root-title {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.runtime-root-latency {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  white-space: nowrap;
+}
+.runtime-node > strong {
+  overflow: hidden;
+  min-width: 0;
+  font-size: 12px;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.runtime-node-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+  gap: 4px;
+}
 .runtime-node[data-selected="true"] {
   border-color: var(--selection-border);
   box-shadow: 0 0 0 2px var(--selection-soft);
@@ -2233,20 +2314,60 @@ th.col-draggable {
 .runtime-node[data-status="failed"] {
   border-color: var(--red);
 }
+.runtime-node[data-status="failed"] .runtime-node-heading {
+  background: var(--red-soft);
+}
 .runtime-node-heading,
 .runtime-node-meta {
   display: flex;
   align-items: center;
   gap: 6px;
 }
+.evaluator-rationale {
+  margin-top: 6px;
+  min-width: 0;
+}
+.evaluator-rationale > summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+.evaluator-rationale > p {
+  margin: 6px 0 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
 .runtime-node-heading {
-  flex-wrap: wrap;
-  gap: 4px;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
   color: var(--muted);
   font-size: 12px;
 }
+.runtime-node-tags {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
 .runtime-sequence {
+  position: relative;
+  z-index: 0;
+  flex: 0 0 auto;
   font-family: var(--mono);
+}
+.runtime-sequence::before {
+  position: absolute;
+  z-index: -1;
+  inset: -2px -4px;
+  border-radius: 5px;
+  content: "";
+}
+.runtime-node[data-selected="true"] .runtime-sequence {
+  color: var(--accent);
+}
+.runtime-node[data-selected="true"] .runtime-sequence::before {
+  background: var(--accent-soft);
 }
 .runtime-kind,
 .runtime-child-kind {
@@ -2285,17 +2406,6 @@ th.col-draggable {
   color: var(--orange);
   background: var(--orange-soft);
   box-shadow: inset 0 0 0 1px var(--orange-border);
-}
-.runtime-node > strong {
-  overflow: hidden;
-  font-size: 12px;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.runtime-node-meta {
-  justify-content: space-between;
-  color: var(--muted);
-  font-size: 12px;
 }
 .runtime-node-status {
   display: inline-flex;

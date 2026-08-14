@@ -2056,6 +2056,24 @@ function formatEvaluatorValue(
     : String(result.value);
 }
 
+function evaluatorCell(
+  result: ExperimentCase["evaluator_results"][number] | undefined,
+  dataType: "boolean" | "number",
+  t: Translate,
+): ReactNode {
+  const value = formatEvaluatorValue(result, dataType, t);
+  if (!result?.rationale) return value;
+  return (
+    <>
+      {value}
+      <details className="evaluator-rationale">
+        <summary>{t("근거 보기")}</summary>
+        <p>{result.rationale}</p>
+      </details>
+    </>
+  );
+}
+
 function ExperimentDrawer({
   experimentId,
   experiment,
@@ -2244,7 +2262,7 @@ function ExperimentCaseTable({ experiment }: { experiment: Experiment }) {
             };
             for (const evaluator of experiment.evaluators) {
               cell[`evaluator:${evaluator.experiment_evaluator_id}`] =
-                formatEvaluatorValue(
+                evaluatorCell(
                   experimentCase.evaluator_results.find(
                     (result) => result.evaluator_key === evaluator.key,
                   ),

@@ -4,28 +4,28 @@
 
 ## application URL state
 
-| 소유 기능 | URL key | 값 |
-| --- | --- | --- |
-| shell | `view` | `traces`, `insights`, `evaluate`, `settings` |
-| Evaluate | `section` | `examples`, `experiments`, `queues`, `scores`; `examples`는 생략 가능 |
-| Traces | `trace` | selected trace ID 또는 없음 |
-| Overview | `overview_from` | ISO timestamp |
-| Overview | `overview_to` | ISO timestamp |
-| Overview | `overview_range` | `1h`, `24h`, `7d`, `30d` |
-| Overview | `overview_timezone` | IANA timezone |
-| Overview | `overview_bucket` | `hour`, `day`, `week`, `month`; `auto`는 생략 가능 |
-| Overview | `overview_query` | text query |
-| Overview | `overview_tag` | tag |
-| Overview | `overview_session` | session ID |
-| Overview | `overview_release` | release |
-| Overview | `overview_environment` | environment |
-| Overview | `overview_user` | user ID |
-| Overview | `overview_scores` | comma-separated ordered score IDs, 최대 4개 |
-| Overview | `overview_tools` | comma-separated ordered tool names |
-| Evaluation | `dataset` | dataset ID |
-| Evaluation | `experiments` | comma-separated ordered experiment IDs |
-| Evaluation | `metrics` | comma-separated evaluator keys |
-| Evaluation | `case` | dataset example ID |
+| 소유 기능  | URL key                | 값                                                                    |
+| ---------- | ---------------------- | --------------------------------------------------------------------- |
+| shell      | `view`                 | `traces`, `insights`, `evaluate`, `settings`                          |
+| Evaluate   | `section`              | `examples`, `experiments`, `queues`, `scores`; `examples`는 생략 가능 |
+| Traces     | `trace`                | selected trace ID 또는 없음                                           |
+| Overview   | `overview_from`        | ISO timestamp                                                         |
+| Overview   | `overview_to`          | ISO timestamp                                                         |
+| Overview   | `overview_range`       | `1h`, `24h`, `7d`, `30d`                                              |
+| Overview   | `overview_timezone`    | IANA timezone                                                         |
+| Overview   | `overview_bucket`      | `hour`, `day`, `week`, `month`; `auto`는 생략 가능                    |
+| Overview   | `overview_query`       | text query                                                            |
+| Overview   | `overview_tag`         | tag                                                                   |
+| Overview   | `overview_session`     | session ID                                                            |
+| Overview   | `overview_release`     | release                                                               |
+| Overview   | `overview_environment` | environment                                                           |
+| Overview   | `overview_user`        | user ID                                                               |
+| Overview   | `overview_scores`      | comma-separated ordered score IDs, 최대 4개                           |
+| Overview   | `overview_tools`       | comma-separated ordered tool names                                    |
+| Evaluation | `dataset`              | dataset ID                                                            |
+| Evaluation | `experiments`          | comma-separated ordered experiment IDs                                |
+| Evaluation | `metrics`              | comma-separated evaluator keys                                        |
+| Evaluation | `case`                 | dataset example ID                                                    |
 
 - URL에 `view`가 없거나 허용되지 않은 값이면 Traces를 연다.
 - 재편 이전 `view` 값은 새 값으로 옮겨 읽는다. 이미 공유된 link를 깨지 않기 위해서다.
@@ -54,10 +54,10 @@
 
 URL이 아니라 브라우저에 저장하는 state다. 링크로 공유되지 않는다.
 
-| 소유 기능 | 저장 key | 값 |
-| --- | --- | --- |
-| shell | `langfeather.theme` | `light`, `dark` |
-| shell | `langfeather.language` | `ko`, `en` |
+| 소유 기능 | 저장 key               | 값              |
+| --------- | ---------------------- | --------------- |
+| shell     | `langfeather.theme`    | `light`, `dark` |
+| shell     | `langfeather.language` | `ko`, `en`      |
 
 - theme은 navigation state가 아니라 기기 취향이므로 URL에 넣지 않는다. 링크를 받은
   사람의 theme을 링크가 덮어쓰지 않아야 한다.
@@ -100,6 +100,10 @@ filter apply/reset
   -> page reset to 1
   -> list loading
 
+manual refresh
+  -> list loading
+  -> list success | list error
+
 trace delete success
   -> trace/observation selection clear
   -> list reload
@@ -109,6 +113,8 @@ trace delete success
 - 같은 observation을 다시 선택했고 payload가 error가 아니면 중복 요청하지 않아도
   된다.
 - detail 또는 payload error의 retry는 현재 selection을 유지한다.
+- manual refresh는 URL-owned `trace` selection을 유지하며, 목록 checkbox selection은
+  목록 effect와 같이 비워도 된다.
 
 ## overlay와 focus
 
@@ -156,6 +162,13 @@ graph layout은 presentation 구현이 바뀌어도 다음 의미를 유지한�
 - 단순한 transitive overlap만으로 한 row에 합치지 않는다.
 - dispatch evidence가 callback parent보다 우선한다.
 - 누락된 target/source를 보완하는 추론 edge를 만들지 않는다.
+- root는 `parent_observation_id === null` evidence로만 식별하고, 현재 표시된 하위
+  node를 감싸는 점선 실행 경계로 그린다. root는 경계 좌상단에 같은 점선 테두리로
+  겹쳐 이름과 latency만 표시하는 fit-content index tab이며 focus 가능한 payload
+  selection action이다.
+  root-to-child callback은 별도 edge 없이 containment로 표현한다.
+- root를 제외한 node badge와 aria label의 순서 번호는 현재 `model.nodes` render
+  order의 1-based index로 맞춘다. root index에는 순서 badge를 표시하지 않는다.
 
 ## 접근성 상태
 

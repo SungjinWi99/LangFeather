@@ -17,6 +17,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable, Mapping, Sequence
+from concurrent.futures import ThreadPoolExecutor, wait
 from dataclasses import dataclass
 from typing import Literal, Protocol, cast
 
@@ -45,6 +46,14 @@ class _ControlRequestError(EvaluationError):
         self.status_code = status_code
 
 
+@dataclass(frozen=True, slots=True)
+class EvaluationScore:
+    """One evaluator value with optional raw diagnostic rationale."""
+
+    value: EvaluatorValue
+    rationale: str | None = None
+
+
 class EvaluatorCallable(Protocol):
     def __call__(
         self,
@@ -53,7 +62,7 @@ class EvaluatorCallable(Protocol):
         output: JsonValue,
         expected_output: JsonValue | None,
         metadata: Mapping[str, JsonValue],
-    ) -> EvaluatorValue: ...
+    ) -> EvaluatorValue | EvaluationScore: ...
 
 
 @dataclass(frozen=True, slots=True)
@@ -279,8 +288,9 @@ def evaluate(
     name: str,
     endpoint: str | None = None,
     target_metadata: Mapping[str, JsonValue] | None = None,
+    max_concurrency: int = 1,
 ) -> ExperimentRun:
-    """Run one local experiment sequentially and persist every case result.
+    """Run one local experiment and persist every case result.
 
     ``target`` can be a normal callable or a LangChain/LangGraph-like object with
     an ``invoke`` method. Target and evaluator failures are recorded per case; a
@@ -289,9 +299,11 @@ def evaluate(
 
     Only :class:`Exception` counts as a case failure. ``KeyboardInterrupt`` and
     other :class:`BaseException` interrupts stop the run and cancel the
-    experiment, so a long run stays interruptible.
+    experiment. ``max_concurrency`` defaults to one; on interruption, queued
+    cases are cancelled while already-running threads finish and persist first.
     """
 
+    _validate_max_concurrency(max_concurrency)
     control = _ControlClient(endpoint)
     experiment = control.post(
         "/api/v1/experiments",
@@ -309,18 +321,70 @@ def evaluate(
             ],
         },
     )
+    return _run_experiment_sync(
+        control,
+        experiment,
+        target,
+        evaluators,
+        max_concurrency=max_concurrency,
+    )
+
+
+def resume_experiment(
+    *,
+    experiment_id: str,
+    target: Callable[[JsonValue], object] | object,
+    evaluators: list[Evaluator],
+    retry_failed: bool = False,
+    endpoint: str | None = None,
+    max_concurrency: int = 1,
+) -> ExperimentRun:
+    """Resume a running or cancelled experiment from its stored case snapshot.
+
+    The caller must supply the same evaluator keys and data types captured by the
+    experiment. Completed history is not rerun; failed cases are retried only
+    when ``retry_failed`` is true.
+    """
+
+    _validate_max_concurrency(max_concurrency)
+    control = _ControlClient(endpoint)
+    snapshot = control.get(
+        f"/api/v1/experiments/{urllib.parse.quote(experiment_id, safe='')}"
+    )
+    _validate_resume_evaluators(snapshot, evaluators)
+    experiment = control.post(
+        f"/api/v1/experiments/{urllib.parse.quote(experiment_id, safe='')}/resume",
+        {"retry_failed": retry_failed},
+    )
+    return _run_experiment_sync(
+        control,
+        experiment,
+        target,
+        evaluators,
+        max_concurrency=max_concurrency,
+    )
+
+
+def _run_experiment_sync(
+    control: _ControlClient,
+    experiment: Mapping[str, object],
+    target: Callable[[JsonValue], object] | object,
+    evaluators: list[Evaluator],
+    *,
+    max_concurrency: int,
+) -> ExperimentRun:
     experiment_id = _required_string(experiment, "experiment_id")
     dataset_id = _required_string(experiment, "dataset_id")
     try:
-        for case in _required_list(experiment, "cases"):
-            _run_case_sync(
-                control,
-                experiment_id,
-                dataset_id,
-                case,
-                target,
-                evaluators,
-            )
+        _run_cases_sync(
+            control,
+            experiment_id,
+            dataset_id,
+            _pending_cases(experiment),
+            target,
+            evaluators,
+            max_concurrency=max_concurrency,
+        )
     except BaseException:
         _finish_best_effort(control, experiment_id, "cancelled")
         raise
@@ -339,13 +403,15 @@ async def aevaluate(
     name: str,
     endpoint: str | None = None,
     target_metadata: Mapping[str, JsonValue] | None = None,
+    max_concurrency: int = 1,
 ) -> ExperimentRun:
-    """Async counterpart to :func:`evaluate` with sequential case execution.
+    """Async counterpart to :func:`evaluate` with bounded case concurrency.
 
     Like :func:`evaluate`, only :class:`Exception` is recorded as a case failure;
     ``asyncio.CancelledError`` and other interrupts cancel the experiment.
     """
 
+    _validate_max_concurrency(max_concurrency)
     control = _ControlClient(endpoint)
     experiment = await asyncio.to_thread(
         control.post,
@@ -360,18 +426,35 @@ async def aevaluate(
             ],
         },
     )
+    return await _run_experiment_async(
+        control,
+        experiment,
+        target,
+        evaluators,
+        max_concurrency=max_concurrency,
+    )
+
+
+async def _run_experiment_async(
+    control: _ControlClient,
+    experiment: Mapping[str, object],
+    target: Callable[[JsonValue], object] | object,
+    evaluators: list[Evaluator],
+    *,
+    max_concurrency: int,
+) -> ExperimentRun:
     experiment_id = _required_string(experiment, "experiment_id")
     dataset_id = _required_string(experiment, "dataset_id")
     try:
-        for case in _required_list(experiment, "cases"):
-            await _run_case_async(
-                control,
-                experiment_id,
-                dataset_id,
-                case,
-                target,
-                evaluators,
-            )
+        await _run_cases_async(
+            control,
+            experiment_id,
+            dataset_id,
+            _pending_cases(experiment),
+            target,
+            evaluators,
+            max_concurrency=max_concurrency,
+        )
     except BaseException:
         await asyncio.to_thread(
             _finish_best_effort, control, experiment_id, "cancelled"
@@ -383,6 +466,119 @@ async def aevaluate(
         {"status": "completed"},
     )
     return _experiment_run(completed)
+
+
+def _pending_cases(experiment: Mapping[str, object]) -> list[Mapping[str, object]]:
+    return [
+        case
+        for case in _required_list(experiment, "cases")
+        if case.get("status", "pending") == "pending"
+    ]
+
+
+def _run_cases_sync(
+    control: _ControlClient,
+    experiment_id: str,
+    dataset_id: str,
+    cases: Sequence[Mapping[str, object]],
+    target: Callable[[JsonValue], object] | object,
+    evaluators: list[Evaluator],
+    *,
+    max_concurrency: int,
+) -> None:
+    if max_concurrency == 1:
+        for case in cases:
+            _run_case_sync(
+                control, experiment_id, dataset_id, case, target, evaluators
+            )
+        return
+
+    executor = ThreadPoolExecutor(max_workers=max_concurrency)
+    futures = set()
+
+    try:
+        for start in range(0, len(cases), max_concurrency):
+            futures = {
+                executor.submit(
+                    _run_case_sync,
+                    control,
+                    experiment_id,
+                    dataset_id,
+                    case,
+                    target,
+                    evaluators,
+                )
+                for case in cases[start : start + max_concurrency]
+            }
+            completed, _ = wait(futures)
+            for future in completed:
+                future.result()
+            futures = set()
+    except BaseException:
+        for future in futures:
+            future.cancel()
+        # Python cannot kill a running thread. Wait for it to finish so any
+        # completed case write lands before the experiment becomes cancelled.
+        executor.shutdown(wait=True, cancel_futures=True)
+        raise
+    else:
+        executor.shutdown(wait=True)
+
+
+async def _run_cases_async(
+    control: _ControlClient,
+    experiment_id: str,
+    dataset_id: str,
+    cases: Sequence[Mapping[str, object]],
+    target: Callable[[JsonValue], object] | object,
+    evaluators: list[Evaluator],
+    *,
+    max_concurrency: int,
+) -> None:
+    if max_concurrency == 1:
+        for case in cases:
+            await _run_case_async(
+                control, experiment_id, dataset_id, case, target, evaluators
+            )
+        return
+
+    for start in range(0, len(cases), max_concurrency):
+        tasks = [
+            asyncio.create_task(
+                _run_case_async(
+                    control, experiment_id, dataset_id, case, target, evaluators
+                )
+            )
+            for case in cases[start : start + max_concurrency]
+        ]
+        try:
+            await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
+
+
+def _validate_max_concurrency(max_concurrency: int) -> None:
+    if isinstance(max_concurrency, bool) or not isinstance(max_concurrency, int):
+        raise ValueError("max_concurrency must be a positive integer")
+    if max_concurrency < 1:
+        raise ValueError("max_concurrency must be a positive integer")
+
+
+def _validate_resume_evaluators(
+    experiment: Mapping[str, object], evaluators: Sequence[Evaluator]
+) -> None:
+    snapshot = {
+        (_required_string(item, "key"), _required_string(item, "data_type"))
+        for item in _required_list(experiment, "evaluators")
+    }
+    supplied = {(item.key, item.data_type) for item in evaluators}
+    if snapshot != supplied or len(snapshot) != len(evaluators):
+        raise EvaluationError(
+            "resume evaluators must exactly match the experiment snapshot keys and data types"
+        )
 
 
 def _run_case_sync(
@@ -422,14 +618,16 @@ def _run_case_sync(
     if status == "completed":
         for item in evaluators:
             try:
-                value = item.function(
-                    input=input_value,
-                    output=output,
-                    expected_output=expected_output,
-                    metadata=metadata,
+                result = _evaluator_result(
+                    item,
+                    item.function(
+                        input=input_value,
+                        output=output,
+                        expected_output=expected_output,
+                        metadata=metadata,
+                    ),
                 )
-                _validate_evaluator_value(item, value)
-                evaluator_results.append({"evaluator_key": item.key, "value": value})
+                evaluator_results.append(result)
             except Exception as raised:
                 evaluator_results.append(
                     {"evaluator_key": item.key, "error_message": str(raised)}
@@ -492,8 +690,7 @@ async def _run_case_async(
                 )
                 if inspect.isawaitable(value):
                     value = await value
-                _validate_evaluator_value(item, value)
-                evaluator_results.append({"evaluator_key": item.key, "value": value})
+                evaluator_results.append(_evaluator_result(item, value))
             except Exception as raised:
                 evaluator_results.append(
                     {"evaluator_key": item.key, "error_message": str(raised)}
@@ -563,6 +760,21 @@ def _validate_evaluator_value(item: Evaluator, value: object) -> None:
             raise TypeError(f"{item.key} must return a finite number")
         if not math.isfinite(float(value)):
             raise TypeError(f"{item.key} must return a finite number")
+
+
+def _evaluator_result(item: Evaluator, value: object) -> dict[str, object]:
+    score = (
+        value
+        if isinstance(value, EvaluationScore)
+        else EvaluationScore(value=cast(EvaluatorValue, value))
+    )
+    _validate_evaluator_value(item, score.value)
+    if score.rationale is not None and not isinstance(score.rationale, str):
+        raise TypeError(f"{item.key} rationale must be a string or None")
+    result: dict[str, object] = {"evaluator_key": item.key, "value": score.value}
+    if score.rationale is not None:
+        result["rationale"] = score.rationale
+    return result
 
 
 def _experiment_run(raw: Mapping[str, object]) -> ExperimentRun:

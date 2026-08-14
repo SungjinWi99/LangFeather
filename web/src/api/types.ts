@@ -349,6 +349,7 @@ export interface ExperimentResult {
   evaluator_key: string;
   value: boolean | number | null;
   error_message: string | null;
+  rationale: string | null;
 }
 
 export interface ExperimentCase {

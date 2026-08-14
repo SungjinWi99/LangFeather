@@ -85,8 +85,18 @@ def test_dataset_snapshot_and_experiment_results_are_immutable(api: TestClient) 
     )
     assert recorded.status_code == 200
     assert recorded.json()["evaluator_results"] == [
-        {"evaluator_key": "exact", "value": True, "error_message": None},
-        {"evaluator_key": "quality", "value": 0.75, "error_message": None},
+        {
+            "evaluator_key": "exact",
+            "value": True,
+            "error_message": None,
+            "rationale": None,
+        },
+        {
+            "evaluator_key": "quality",
+            "value": 0.75,
+            "error_message": None,
+            "rationale": None,
+        },
     ]
 
     finished = api.post(
@@ -330,9 +340,24 @@ def test_experiment_case_results_follow_evaluator_order(api: TestClient) -> None
     )
     assert written.status_code == 200
     expected = [
-        {"evaluator_key": "first", "value": True, "error_message": None},
-        {"evaluator_key": "second", "value": None, "error_message": "evaluator raised"},
-        {"evaluator_key": "third", "value": False, "error_message": None},
+        {
+            "evaluator_key": "first",
+            "value": True,
+            "error_message": None,
+            "rationale": None,
+        },
+        {
+            "evaluator_key": "second",
+            "value": None,
+            "error_message": "evaluator raised",
+            "rationale": None,
+        },
+        {
+            "evaluator_key": "third",
+            "value": False,
+            "error_message": None,
+            "rationale": None,
+        },
     ]
     assert written.json()["evaluator_results"] == expected
 
