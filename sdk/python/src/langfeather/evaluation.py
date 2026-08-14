@@ -696,18 +696,25 @@ async def _run_case_async(
                     {"evaluator_key": item.key, "error_message": str(raised)}
                 )
     flush_transport(timeout=2.0)
-    await asyncio.to_thread(
-        control.put,
-        f"/api/v1/experiments/{experiment_id}/cases/{case_id}",
-        {
-            "status": status,
-            "output": output,
-            "error": error,
-            "duration_us": duration_us,
-            "trace_id": trace_id,
-            "evaluator_results": evaluator_results,
-        },
+    put_task = asyncio.create_task(
+        asyncio.to_thread(
+            control.put,
+            f"/api/v1/experiments/{experiment_id}/cases/{case_id}",
+            {
+                "status": status,
+                "output": output,
+                "error": error,
+                "duration_us": duration_us,
+                "trace_id": trace_id,
+                "evaluator_results": evaluator_results,
+            },
+        )
     )
+    try:
+        await asyncio.shield(put_task)
+    except asyncio.CancelledError:
+        await put_task
+        raise
 
 
 def _call_target(
