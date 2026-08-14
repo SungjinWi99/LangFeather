@@ -189,6 +189,7 @@ export const EN: Record<string, string> = {
   "{n}일 전": "{n}d ago",
 
   // runtime graph
+  "전체 실행": "Full run",
   "실행 노드 {name}": "Node {name}",
   "순서 {n}": "Step {n}",
   "하위 {kind} {count}개": "{count} nested {kind}",
@@ -239,7 +240,8 @@ export const EN: Record<string, string> = {
   "Scores를 불러오는 중…": "Loading scores…",
   "Score 목록을 불러오지 못했습니다.": "Could not load the score list.",
   "Score를 저장하지 못했습니다.": "Could not save the score.",
-  "선택한 Score를 처리하지 못했습니다.": "Could not process the selected scores.",
+  "선택한 Score를 처리하지 못했습니다.":
+    "Could not process the selected scores.",
   "모든 score 선택": "Select all scores",
   "Score를 삭제할까요? ({n})": "Delete scores? ({n})",
   "이미 사용된 score는 이름과 설명만 수정할 수 있습니다.":

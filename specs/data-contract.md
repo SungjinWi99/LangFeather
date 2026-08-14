@@ -58,7 +58,7 @@ envelope는 독립적으로 validate·commit한다. JSON request 자체가 잘�
 
 | endpoint | 역할 |
 | --- | --- |
-| `GET /api/v1/traces` | cursor list. 기본 50, 최대 200, name/input/output text와 filter 지원 |
+| `GET /api/v1/traces` | cursor list. 기본 50, 최대 200, trace ID/name/input/output text와 filter 지원 |
 | `GET /api/v1/traces/{trace_id}` | trace와 observation summary, annotation, memo |
 | `GET /api/v1/observations/{observation_id}` | 선택 observation의 전체 payload |
 | `DELETE /api/v1/traces/{trace_id}` | trace와 관련 observation/annotation/queue item 삭제 |
@@ -109,7 +109,10 @@ Python SDK의 `log_feedback()`도 UI와 같은 annotation을 쓴다. 이름으�
 
 dataset은 mutable example 모음이고, experiment 시작 시 dataset revision과 evaluator 선언을
 case에 snapshot한다. target/evaluator 실행은 SDK caller process의 책임이며 server는 결과만
-저장한다. 자세한 기능 계약은 [evaluation spec](features/evaluation.md)을 따른다.
+저장한다. evaluator result는 boolean/finite number와 nullable raw `rationale` 또는
+`error_message` 하나를 가진다. `POST /api/v1/experiments/{experiment_id}/resume`은
+`running`/`cancelled` experiment만 받고 `retry_failed`가 true일 때 failed case result를
+pending으로 비운다. 자세한 기능 계약은 [evaluation spec](features/evaluation.md)을 따른다.
 
 ## 관리 API
 

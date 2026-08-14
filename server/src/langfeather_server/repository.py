@@ -333,6 +333,7 @@ def _dashboard_conditions(
                 TraceRow.name.like(pattern, escape="\\"),
                 TraceRow.input_json.like(pattern, escape="\\"),
                 TraceRow.output_json.like(pattern, escape="\\"),
+                TraceRow.trace_id.like(pattern, escape="\\"),
             )
         )
     return conditions
@@ -897,6 +898,7 @@ def _experiment_case_response(
                     evaluator_key=evaluator.key,
                     value=value,
                     error_message=result.error_message,
+                    rationale=result.rationale,
                 ),
             )
         )
@@ -1084,6 +1086,7 @@ class TraceRepository:
                     TraceRow.name.like(pattern, escape="\\"),
                     TraceRow.input_json.like(pattern, escape="\\"),
                     TraceRow.output_json.like(pattern, escape="\\"),
+                    TraceRow.trace_id.like(pattern, escape="\\"),
                 )
             )
 
@@ -2647,6 +2650,7 @@ class TraceRepository:
                         else None
                     ),
                     error_message=result.error_message,
+                    rationale=result.rationale,
                 )
                 for result in request.evaluator_results
             ]
@@ -2671,6 +2675,41 @@ class TraceRepository:
                 raise ResourceConflictError("experiment is already finished")
             experiment.status = status
             experiment.ended_at = _now_timestamp()
+            session.flush()
+            return _experiment_response(session, experiment)
+
+    def resume_experiment(
+        self, experiment_id: str, *, retry_failed: bool
+    ) -> ExperimentResponse:
+        with self._session_factory.begin() as session:
+            experiment = session.get(ExperimentRow, experiment_id)
+            if experiment is None:
+                raise ResourceNotFoundError("Experiment not found")
+            if experiment.status not in {"running", "cancelled"}:
+                raise ResourceConflictError("completed experiment cannot be resumed")
+            experiment.status = "running"
+            experiment.ended_at = None
+            if retry_failed:
+                failed_cases = session.scalars(
+                    select(ExperimentCaseRow).where(
+                        ExperimentCaseRow.experiment_id == experiment_id,
+                        ExperimentCaseRow.status == "failed",
+                    )
+                ).all()
+                if failed_cases:
+                    failed_case_ids = [case.experiment_case_id for case in failed_cases]
+                    session.execute(
+                        delete(ExperimentResultRow).where(
+                            ExperimentResultRow.experiment_case_id.in_(failed_case_ids)
+                        )
+                    )
+                    for case in failed_cases:
+                        case.status = "pending"
+                        case.output_json = None
+                        case.error_json = None
+                        case.duration_us = None
+                        case.trace_id = None
+                        case.completed_at = None
             session.flush()
             return _experiment_response(session, experiment)
 

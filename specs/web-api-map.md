@@ -77,6 +77,7 @@ memo가 정의되지 않았으면 field 자체를 생략한다.
 | dataset 삭제 | `DELETE /datasets/{dataset_id}` | 없음 | `204`; history가 있으면 `409` |
 | experiment 목록 | `GET /experiments` | 없음 | `ExperimentListResponse` |
 | experiment detail | `GET /experiments/{experiment_id}` | 없음 | `Experiment` |
+| experiment 재개 | `POST /experiments/{experiment_id}/resume` | `retry_failed:false` | `Experiment` |
 | experiment 삭제 | `DELETE /experiments/{experiment_id}` | 없음 | `204` |
 
 example input은 모든 JSON value를 허용한다. metadata는 object여야 한다.

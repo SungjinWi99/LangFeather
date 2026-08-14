@@ -121,7 +121,8 @@ print(run.experiment_id, run.completed_case_count, run.failed_case_count)
 
 `target`은 JSON-compatible input 하나를 받는 callable이거나 `invoke()`를 가진
 LangChain/LangGraph-like object다. `aevaluate()`는 async callable 또는 `ainvoke()`를
-가진 object에 사용한다. Case는 순차 실행된다.
+가진 object에 사용한다. `max_concurrency` 기본값은 `1`이고 더 큰 양의 정수로 bounded
+case concurrency를 요청할 수 있다.
 
 각 case는 normal trace를 생성하며 trace metadata에 `experiment_id`, `dataset_id`,
 `dataset_example_id`, `experiment_case_id`를 남긴다. target failure와 evaluator
@@ -137,7 +138,9 @@ failure는 해당 case result로 저장하고 다음 case를 계속 실행한다
 - `contains()`: string expected output이 output에 포함되는지, 그 외에는 전체 동등성 확인
 - `json_field("answer")`: output과 expected output object의 지정 field가 같은지 확인
 
-Custom evaluator는 boolean 또는 finite number를 반환해야 한다.
+Custom evaluator는 boolean 또는 finite number를 반환해야 한다. 판정 근거가 필요하면
+public frozen dataclass `EvaluationScore`를 반환한다. rationale은 raw diagnostic text라
+LangFeather가 redact, truncate, summarize하지 않는다.
 
 ```python
 @langfeather.evaluator(key="answer_length", name="Answer length", data_type="number")
@@ -146,6 +149,10 @@ def answer_length(*, input, output, expected_output, metadata) -> float:
     if not isinstance(output, dict):
         return 0.0
     return float(len(str(output.get("answer", ""))))
+
+@langfeather.evaluator(key="judge", name="Judge")
+def judge(*, input, output, expected_output, metadata):
+    return langfeather.EvaluationScore(True, "retrieved source supports the answer")
 ```
 
 Evaluator function은 `input`, `output`, `expected_output`, `metadata` keyword
@@ -166,7 +173,9 @@ Dataset example의 `source_trace_id`와 experiment case의 `trace_id`는 soft re
 Case 결과는 한 번만 기록한다. `PUT /api/v1/experiments/{id}/cases/{case_id}`는
 pending case만 받으며, 이미 기록된 case에 다시 쓰면 같은 내용이라도 409다. 마찬가지로
 이미 끝난 experiment에 `finish`를 다시 호출해도 409다. 기록된 결과를 고치는 방법은
-없고, 다시 측정하려면 새 experiment를 만든다.
+없다. 다만 `resume_experiment()`는 running/cancelled experiment의 pending case만 이어서
+실행한다. `retry_failed=True`일 때만 failed case의 stored output/error/duration/trace/result를
+비운 뒤 다시 실행하며, completed history와 dataset/evaluator snapshot은 바꾸지 않는다.
 
 ```text
 PUT .../cases/{case_id}   1회차 → 200
@@ -186,6 +195,26 @@ completed + [exact]                    → 409 (quality 누락)
 completed + [exact, quality(error)]    → 200
 failed    + []                         → 200
 ```
+
+## 중단과 재개
+
+`KeyboardInterrupt` 또는 async cancellation이 오면 새 case 제출을 멈추고 experiment를
+`cancelled`로 끝낸다. sync worker thread는 Python에서 강제 종료할 수 없어 이미 시작한
+case가 result를 저장할 때까지 기다린다; 아직 시작하지 않은 case는 pending으로 남는다.
+
+```python
+run = langfeather.resume_experiment(
+    experiment_id="exp_existing",
+    target=answer,
+    evaluators=[langfeather.exact_match()],
+    retry_failed=False,
+    max_concurrency=2,
+)
+```
+
+재개 전 SDK는 stored evaluator snapshot의 key와 data type이 caller가 준 evaluator와 정확히
+일치하는지 확인한다. local single-user 경계이므로 abandoned running experiment에 lease나
+lock은 없고, 같은 experiment를 동시에 재개하지 않는 것은 caller 책임이다.
 
 ## 현재 범위
 

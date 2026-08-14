@@ -1,3 +1,5 @@
+import {readFileSync} from "node:fs";
+import {resolve} from "node:path";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -719,5 +721,123 @@ describe("V2 presentation", () => {
         within(pane).queryByRole("button", { name: "상세 닫기" }),
       ).toBeNull();
     });
+  });
+});
+
+describe("Traces manual refresh", () => {
+  it("does not hide manual refresh in collapsed split filters", () => {
+    // jsdom does not calculate media-query layout or client rects.
+    const stylesheet = readFileSync(
+      resolve(process.cwd(), "src", "styles.css"),
+      "utf8",
+    );
+    expect(stylesheet).toMatch(
+      /\.filter-panel\.is-collapsed\s+\.filter-actions\s+\.lf-btn:is\(\.is-primary, \[type="reset"\]\)\s*\{\s*display:\s*none;/,
+    );
+  });
+
+  it("retries an errored list, disables while loading, and keeps the URL detail open", async () => {
+    const user = userEvent.setup();
+    let resolveList:
+      | ((value: {
+          items: Array<typeof trace>;
+          next_cursor: null;
+          total_count: number;
+        }) => void)
+      | undefined;
+    api.getTraces
+      .mockRejectedValueOnce(new Error("offline"))
+      .mockImplementationOnce(
+        () =>
+          new Promise((resolve) => {
+            resolveList = resolve;
+          }),
+      );
+    window.history.replaceState(null, "", "/?view=traces&trace=tr_001");
+    render(<App />);
+
+    await screen.findByRole("alert");
+    await screen.findByRole("complementary", {name: "Trace 상세"});
+    const refresh = screen.getByRole("button", {name: "Trace 목록 새로고침"});
+    expect(refresh).toBeEnabled();
+
+    await user.click(refresh);
+    expect(refresh).toBeDisabled();
+    resolveList?.({items: [trace], next_cursor: null, total_count: 1});
+
+    await screen.findByText("tr_001");
+    expect(screen.getByRole("complementary", {name: "Trace 상세"})).toBeVisible();
+    expect(api.getTraces).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("Experiment rationale", () => {
+  it("keeps raw rationale in an accessible disclosure", async () => {
+    const user = userEvent.setup();
+    const summary = {
+      experiment_id: "exp_rationale",
+      dataset_id: "dataset_001",
+      dataset_revision: 3,
+      name: "Rationale run",
+      status: "completed" as const,
+      started_at: startedAt,
+      ended_at: "2026-08-02T01:00:01.000Z",
+      case_count: 1,
+      completed_case_count: 1,
+      failed_case_count: 0,
+    };
+    api.getExperiments.mockResolvedValue({items: [summary]});
+    api.getExperiment.mockResolvedValue({
+      ...summary,
+      target_metadata: {},
+      evaluators: [
+        {
+          experiment_evaluator_id: "ee_judge",
+          key: "judge",
+          name: "Judge",
+          data_type: "boolean",
+          position: 0,
+        },
+      ],
+      cases: [
+        {
+          experiment_case_id: "ec_rationale",
+          dataset_example_id: "example_001",
+          position: 0,
+          input: {question: "지원 대상"},
+          expected_output: {answer: "청년"},
+          metadata: {},
+          status: "completed",
+          output: {answer: "청년"},
+          error: null,
+          duration_us: 1,
+          trace_id: "tr_001",
+          completed_at: "2026-08-02T01:00:01.000Z",
+          evaluator_results: [
+            {
+              evaluator_key: "judge",
+              value: true,
+              error_message: null,
+              rationale: "raw evaluator diagnostic",
+            },
+          ],
+        },
+      ],
+    });
+    window.history.replaceState(
+      null,
+      "",
+      "/?view=evaluate&section=experiments&dataset=dataset_001",
+    );
+    render(<App />);
+
+    await user.click(await screen.findByText("Rationale run"));
+    const rationale = await screen.findByText("근거 보기");
+    const disclosure = rationale.closest("details");
+    expect(disclosure).not.toHaveAttribute("open");
+
+    await user.click(rationale);
+    expect(disclosure).toHaveAttribute("open");
+    expect(screen.getByText("raw evaluator diagnostic")).toBeVisible();
   });
 });

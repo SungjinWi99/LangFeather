@@ -16,6 +16,7 @@ from ._transport import configure_transport, flush_transport, shutdown_transport
 from .evaluation import (
     Dataset,
     DatasetExample,
+    EvaluationScore,
     Evaluator,
     ExperimentRun,
     add_dataset_examples,
@@ -29,6 +30,7 @@ from .evaluation import (
     get_dataset,
     get_or_create_dataset,
     json_field,
+    resume_experiment,
 )
 from .feedback import Feedback, FeedbackError, log_feedback
 
@@ -39,6 +41,7 @@ __all__ = [
     "Dataset",
     "DatasetExample",
     "Evaluator",
+    "EvaluationScore",
     "ExperimentRun",
     "Feedback",
     "FeedbackError",
@@ -61,6 +64,7 @@ __all__ = [
     "log_feedback",
     "observe",
     "json_field",
+    "resume_experiment",
     "shutdown",
     "span",
     "use_context",

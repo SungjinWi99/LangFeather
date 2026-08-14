@@ -108,7 +108,7 @@ def test_health_reports_applied_migration(
         "status": "ok",
         "server_version": "0.3.2",
         "supported_schema_versions": [1],
-        "database_migration_version": "0005_queue_item_was_edited",
+        "database_migration_version": "0006_experiment_result_rationale",
     }
 
 
@@ -452,6 +452,242 @@ def test_list_filters_and_uses_an_exclusive_opaque_cursor(
 
     invalid_cursor = client.get("/api/v1/traces?cursor=not-a-cursor")
     assert invalid_cursor.status_code == 400
+
+
+def test_trace_id_query_matches_partial_ids_and_escapes_like_wildcards(
+    api: tuple[TestClient, Path],
+) -> None:
+    client, _ = api
+    literal_id = "tr_issue20_%_literal"
+    wildcard_match = make_envelope(
+        trace_id=literal_id,
+        root_id="obs_issue20_literal_root",
+        child_id="obs_issue20_literal_child",
+    )
+    near_match = make_envelope(
+        trace_id="tr_issue20_xxliteral",
+        root_id="obs_issue20_near_root",
+        child_id="obs_issue20_near_child",
+    )
+    stored = client.post(
+        "/api/v1/traces/batch", json={"items": [wildcard_match, near_match]}
+    )
+    assert [item["status"] for item in stored.json()["results"]] == [
+        "stored",
+        "stored",
+    ]
+
+    partial = client.get("/api/v1/traces", params={"query": "issue20"})
+    literal = client.get("/api/v1/traces", params={"query": literal_id})
+    dashboard = client.get(
+        "/api/v1/dashboard",
+        params={
+            "from": "2026-07-25T11:00:00Z",
+            "to": "2026-07-25T13:00:00Z",
+            "timezone": "UTC",
+            "query": literal_id,
+        },
+    )
+
+    assert {item["trace_id"] for item in partial.json()["items"]} == {
+        literal_id,
+        "tr_issue20_xxliteral",
+    }
+    assert [item["trace_id"] for item in literal.json()["items"]] == [literal_id]
+    assert dashboard.json()["totals"]["trace_count"] == 1
+
+
+def _create_experiment(client: TestClient, *, example_count: int = 1) -> dict[str, Any]:
+    dataset = client.post(
+        "/api/v1/datasets",
+        json={
+            "name": "evaluation-api-test",
+            "examples": [
+                {
+                    "input": {"case": index},
+                    "expected_output": {"answer": "ok"},
+                    "metadata": {},
+                }
+                for index in range(example_count)
+            ],
+        },
+    )
+    assert dataset.status_code == 201
+    experiment = client.post(
+        "/api/v1/experiments",
+        json={
+            "dataset_id": dataset.json()["dataset_id"],
+            "name": "evaluation-api-test",
+            "evaluators": [
+                {"key": "judge", "name": "Judge", "data_type": "boolean"}
+            ],
+        },
+    )
+    assert experiment.status_code == 201
+    return cast(dict[str, Any], experiment.json())
+
+
+def test_experiment_result_rationale_round_trips_without_mutation(
+    api: tuple[TestClient, Path],
+) -> None:
+    client, _ = api
+    experiment = _create_experiment(client, example_count=2)
+    case_id = experiment["cases"][0]["experiment_case_id"]
+    pending_case_id = experiment["cases"][1]["experiment_case_id"]
+
+    stored = client.put(
+        f"/api/v1/experiments/{experiment['experiment_id']}/cases/{case_id}",
+        json={
+            "status": "completed",
+            "output": {"answer": "ok"},
+            "duration_us": 1,
+            "evaluator_results": [
+                {
+                    "evaluator_key": "judge",
+                    "value": True,
+                    "rationale": "raw judge diagnostic\nwith a second line",
+                }
+            ],
+        },
+    )
+
+    assert stored.status_code == 200
+    assert stored.json()["evaluator_results"] == [
+        {
+            "evaluator_key": "judge",
+            "value": True,
+            "error_message": None,
+            "rationale": "raw judge diagnostic\nwith a second line",
+        }
+    ]
+    detail = client.get(f"/api/v1/experiments/{experiment['experiment_id']}")
+    assert detail.json()["cases"][0]["evaluator_results"][0]["rationale"] == (
+        "raw judge diagnostic\nwith a second line"
+    )
+
+    invalid = client.put(
+        f"/api/v1/experiments/{experiment['experiment_id']}/cases/{pending_case_id}",
+        json={
+            "status": "completed",
+            "output": {"answer": "ok"},
+            "duration_us": 1,
+            "evaluator_results": [
+                {
+                    "evaluator_key": "judge",
+                    "error_message": "judge failed",
+                    "rationale": "must not persist with an error",
+                }
+            ],
+        },
+    )
+    assert invalid.status_code == 422
+
+    null_score = client.put(
+        f"/api/v1/experiments/{experiment['experiment_id']}/cases/{pending_case_id}",
+        json={
+            "status": "completed",
+            "output": {"answer": "ok"},
+            "duration_us": 1,
+            "evaluator_results": [
+                {
+                    "evaluator_key": "judge",
+                    "value": None,
+                    "rationale": "must not persist without a score",
+                }
+            ],
+        },
+    )
+    assert null_score.status_code == 422
+
+
+def test_resume_experiment_keeps_history_and_only_resets_failed_cases_on_request(
+    api: tuple[TestClient, Path],
+) -> None:
+    client, database_path = api
+    experiment = _create_experiment(client, example_count=2)
+    experiment_id = cast(str, experiment["experiment_id"])
+    first_case, failed_case = experiment["cases"]
+
+    assert (
+        client.put(
+            f"/api/v1/experiments/{experiment_id}/cases/{first_case['experiment_case_id']}",
+            json={
+                "status": "completed",
+                "output": {"answer": "ok"},
+                "duration_us": 1,
+                "trace_id": "tr_completed",
+                "evaluator_results": [{"evaluator_key": "judge", "value": True}],
+            },
+        ).status_code
+        == 200
+    )
+    assert (
+        client.put(
+            f"/api/v1/experiments/{experiment_id}/cases/{failed_case['experiment_case_id']}",
+            json={
+                "status": "failed",
+                "error": {"type": "target"},
+                "duration_us": 2,
+                "trace_id": "tr_failed",
+                "evaluator_results": [
+                    {"evaluator_key": "judge", "error_message": "judge failed"}
+                ],
+            },
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            f"/api/v1/experiments/{experiment_id}/finish", json={"status": "cancelled"}
+        ).status_code
+        == 200
+    )
+
+    without_retry = client.post(
+        f"/api/v1/experiments/{experiment_id}/resume", json={"retry_failed": False}
+    )
+    assert without_retry.status_code == 200
+    before_retry = {
+        item["experiment_case_id"]: item for item in without_retry.json()["cases"]
+    }
+    assert without_retry.json()["status"] == "running"
+    assert without_retry.json()["ended_at"] is None
+    assert before_retry[first_case["experiment_case_id"]]["status"] == "completed"
+    assert before_retry[failed_case["experiment_case_id"]]["status"] == "failed"
+
+    with_retry = client.post(
+        f"/api/v1/experiments/{experiment_id}/resume", json={"retry_failed": True}
+    )
+    assert with_retry.status_code == 200
+    after_retry = {
+        item["experiment_case_id"]: item for item in with_retry.json()["cases"]
+    }
+    assert after_retry[first_case["experiment_case_id"]]["status"] == "completed"
+    assert after_retry[failed_case["experiment_case_id"]] == {
+        **after_retry[failed_case["experiment_case_id"]],
+        "status": "pending",
+        "output": None,
+        "error": None,
+        "duration_us": None,
+        "trace_id": None,
+        "completed_at": None,
+        "evaluator_results": [],
+    }
+    with sqlite3.connect(database_path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM experiment_results").fetchone() == (
+            1,
+        )
+
+    assert (
+        client.post(
+            f"/api/v1/experiments/{experiment_id}/finish", json={"status": "completed"}
+        ).status_code
+        == 200
+    )
+    assert (
+        client.post(f"/api/v1/experiments/{experiment_id}/resume", json={}).status_code
+        == 409
+    )
 
 
 def test_trace_detail_and_observation_payload_are_separate(

@@ -34,6 +34,7 @@ function result(
     evaluator_key: evaluatorKey,
     value,
     error_message: errorMessage,
+    rationale: null,
   };
 }
 
