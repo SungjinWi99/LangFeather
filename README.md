@@ -1,13 +1,36 @@
+<div align="center">
+
+<img src="docs/assets/langfeather-mark.png" alt="" width="96" />
+
 # LangFeather
 
-[English README](README_EN.md)
+*LangGraph가 실제로 무엇을 실행했는지, 내 PC에서 본다.*
 
-> 제한된 개발 환경에서 LangGraph 챗봇의 실제 실행 흐름을 확인하는 경량 observability 도구
+[![pypi](https://img.shields.io/pypi/v/langfeather?style=flat-square&label=pypi&labelColor=2b3a40&color=1d6b74)](https://pypi.org/project/langfeather/)
+![python](https://img.shields.io/badge/python-3.10%2B-1d6b74?style=flat-square&labelColor=2b3a40)
+![works with](https://img.shields.io/badge/works%20with-LangGraph%20%C2%B7%20LangChain-1d6b74?style=flat-square&labelColor=2b3a40)
+![data](https://img.shields.io/badge/data-100%25%20local-1d6b74?style=flat-square&labelColor=2b3a40)
+[![license](https://img.shields.io/badge/license-Apache%202.0-1d6b74?style=flat-square&labelColor=2b3a40)](LICENSE)
+
+한국어 · [English](README_EN.md)
+
+</div>
 
 LangFeather는 LangGraph/LangChain application의 Runnable, LLM, retriever, tool 실행과
 원본 input/output, error, latency를 local UI에서 확인하게 합니다. LangSmith의 hosted
 service·trace quota와 무거운 self-hosted stack 사이에서, 필요한 debugging 기능만 작은
 stack으로 제공하는 것이 목표입니다.
+
+## 무엇을 볼 수 있나
+
+- **Traces** — Runnable·LLM·retriever·tool 실행을 node 그래프로 보고, 원본
+  input/output을 접기/펼치기 tree로 확인합니다.
+- **Overview** — 선택한 기간과 filter를 기준으로 trace 수, latency 백분위수, 오류율,
+  score 추이를 봅니다.
+- **Evaluate** — dataset과 experiment를 만들고, 같은 dataset revision의 experiment를
+  최대 4개까지 evaluator별로 비교합니다.
+- **Scores & Queues** — 불리언·숫자·범주형 score를 정의하고, annotation queue에서
+  사람이 직접 평가합니다.
 
 ## 현재 상태
 
@@ -15,8 +38,9 @@ stack으로 제공하는 것이 목표입니다.
 PC에서 실행하고 기본적으로 `127.0.0.1:4319`에만 열립니다. login, cloud collector,
 team sharing, public EC2 deployment는 아직 지원하지 않습니다.
 
-trace payload는 자동 redaction, truncation, sampling 없이 local SQLite에 저장됩니다.
-secret이나 production data를 넣지 마세요.
+> [!WARNING]
+> trace payload는 자동 redaction, truncation, sampling 없이 local SQLite에 저장됩니다.
+> secret이나 production data를 넣지 마세요.
 
 ## 빠른 시작
 
