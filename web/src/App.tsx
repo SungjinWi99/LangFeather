@@ -111,6 +111,8 @@ function ThemeSwitch() {
 const NAVIGATION: ReadonlyArray<{ id: AppView; label: string }> = [
   { id: "overview", label: "Overview" },
   { id: "traces", label: "Traces" },
+  { id: "scores", label: "Scores" },
+  { id: "queues", label: "Queues" },
   { id: "evaluate", label: "Evaluate" },
   { id: "settings", label: "Settings" },
 ];
@@ -121,8 +123,6 @@ const EVALUATE_SEGMENTS: ReadonlyArray<{
 }> = [
   { id: "examples", label: "Examples" },
   { id: "experiments", label: "Experiments" },
-  { id: "queues", label: "Queues" },
-  { id: "scores", label: "Scores" },
 ];
 
 /** Provider는 App 안에 둔다. test가 <App />을 직접 render하기 때문이다. */
@@ -283,19 +283,16 @@ function AppShell() {
               </button>
             ))}
           </nav>
-          {urlState.section === "examples" ||
-          urlState.section === "experiments" ? (
-            <EvaluationView
-              section={urlState.section}
-              state={urlState.evaluation}
-              onChange={setEvaluation}
-              onSection={selectSection}
-            />
-          ) : null}
-          {urlState.section === "queues" ? <QueuesView /> : null}
-          {urlState.section === "scores" ? <ScoresView /> : null}
+          <EvaluationView
+            section={urlState.section}
+            state={urlState.evaluation}
+            onChange={setEvaluation}
+            onSection={selectSection}
+          />
         </>
       ) : null}
+      {urlState.view === "queues" ? <QueuesView /> : null}
+      {urlState.view === "scores" ? <ScoresView /> : null}
       {urlState.view === "settings" ? (
         <LocalDataView
           onReset={() => commit({ ...urlState, view: "traces", traceId: null })}

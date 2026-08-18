@@ -23,6 +23,8 @@ describe("shell URL state", () => {
   it("새 view 값을 그대로 읽는다", () => {
     expect(readAppUrlState("?view=overview").view).toBe("overview");
     expect(readAppUrlState("?view=evaluate").view).toBe("evaluate");
+    expect(readAppUrlState("?view=queues").view).toBe("queues");
+    expect(readAppUrlState("?view=scores").view).toBe("scores");
     expect(readAppUrlState("?view=settings").view).toBe("settings");
   });
 
@@ -31,8 +33,6 @@ describe("shell URL state", () => {
     // Insights는 재편 중 잠깐 쓰던 이름이다. Overview로 되돌렸다.
     ["?view=insights", "overview", "examples"],
     ["?view=traces", "traces", "examples"],
-    ["?view=queues", "evaluate", "queues"],
-    ["?view=scores", "evaluate", "scores"],
     // Datasets 세그먼트는 사라졌다. dataset 선택은 Examples의 context bar가 맡는다.
     ["?view=datasets", "evaluate", "examples"],
     ["?view=data", "settings", "examples"],
@@ -42,11 +42,24 @@ describe("shell URL state", () => {
     expect(state.section).toBe(section);
   });
 
+  // Queues/Scores는 dataset의 하위가 아니라 top-level이다. 잠깐 세그먼트였던
+  // 시절의 link만 읽을 때 올려 준다.
+  it("Evaluate 세그먼트였던 queues/scores link는 top-level로 올려 읽는다", () => {
+    expect(readAppUrlState("?view=evaluate&section=queues").view).toBe(
+      "queues",
+    );
+    expect(readAppUrlState("?view=evaluate&section=scores").view).toBe(
+      "scores",
+    );
+  });
+
   it("URL을 다시 쓸 때는 새 값만 쓴다", () => {
-    replaceAppUrlState(baseState({view: "evaluate", section: "queues"}));
+    replaceAppUrlState(baseState({view: "evaluate", section: "experiments"}));
     expect(window.location.search).toContain("view=evaluate");
-    expect(window.location.search).toContain("section=queues");
-    expect(window.location.search).not.toContain("view=queues");
+    expect(window.location.search).toContain("section=experiments");
+    replaceAppUrlState(baseState({view: "queues"}));
+    expect(window.location.search).toContain("view=queues");
+    expect(window.location.search).not.toContain("section=");
   });
 
   it("기본 section인 examples는 URL에 남기지 않는다", () => {
@@ -64,19 +77,19 @@ describe("shell URL state", () => {
     );
     // section이 있으면 그쪽이 이긴다.
     expect(
-      readAppUrlState("?view=evaluate&section=queues&tab=compare").section,
-    ).toBe("queues");
+      readAppUrlState("?view=evaluate&section=examples&tab=compare").section,
+    ).toBe("examples");
   });
 
   it("Evaluate가 아닌 화면에서는 section을 쓰지 않는다", () => {
-    replaceAppUrlState(baseState({view: "traces", section: "scores"}));
+    replaceAppUrlState(baseState({view: "traces", section: "experiments"}));
     expect(window.location.search).not.toContain("section=");
   });
 
   it("view와 section이 round-trip한다", () => {
-    replaceAppUrlState(baseState({view: "evaluate", section: "scores"}));
+    replaceAppUrlState(baseState({view: "evaluate", section: "experiments"}));
     const restored = readAppUrlState();
     expect(restored.view).toBe("evaluate");
-    expect(restored.section).toBe("scores");
+    expect(restored.section).toBe("experiments");
   });
 });
