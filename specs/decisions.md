@@ -13,7 +13,7 @@
 | 전송 | bounded in-memory queue, background batch HTTP, 짧은 retry의 best-effort 방식이다. tracing 실패가 application 결과를 바꾸면 안 된다. |
 | 데이터 | raw diagnostic payload는 자동 redaction, truncation, sampling 없이 local SQLite에 저장한다. 매우 큰/끝나지 않는 stream은 memory를 소진할 수 있다. |
 | server | FastAPI, SQLAlchemy 2.0, SQLite, Alembic, single process/single writer를 사용한다. write API는 commit 뒤에만 성공한다. |
-| UI | top-level은 Overview / Traces / Evaluate / Settings 넷이고 기본 진입은 Overview다. 평가 루프(Examples, Experiments, Queues, Scores)는 Evaluate 안의 세그먼트로 모은다. UI는 확인된 runtime evidence만 보여 준다. |
+| UI | top-level은 Overview / Traces / Scores / Queues / Evaluate / Settings 여섯이고 기본 진입은 Overview다. Evaluate 안의 세그먼트는 dataset에 매달린 Examples / Experiments 둘뿐이고, dataset과 무관한 Queues와 Scores는 top-level에 둔다. UI는 확인된 runtime evidence만 보여 준다. |
 | evaluation | target/evaluator는 SDK를 호출한 사용자 Python process에서 실행하고 server는 dataset, snapshot, result만 저장한다. |
 | license | Apache-2.0을 사용하며 root와 Python distribution에 LICENSE를 포함한다. |
 

@@ -133,12 +133,12 @@ dark의 선택 상태는 `selection-ink #ebedef`, `selection-border #595e66`,
 
 ## Structure
 
-- 상단 bar는 고정 높이의 wordmark와 정확히 네 navigation item(Overview / Traces /
-  Evaluate / Settings), 그리고 오른쪽 끝에 언어와 theme 전환 control을 가진다.
+- 상단 bar는 고정 높이의 wordmark와 여섯 navigation item(Overview / Traces /
+  Scores / Queues / Evaluate / Settings), 그리고 오른쪽 끝에 언어와 theme 전환 control을 가진다.
   둘 다 값이 둘뿐이므로 select가 아니라 두 값을 나란히 보여주는 전환 control이고,
   고른 쪽으로 thumb가 미끄러진다. wordmark는 레퍼런스 로고의 비율을 따른다 —
   png의 투명 여백을 음수 여백으로 걷어내야 눈에 보이는 깃털을 기준으로 정렬된다. Evaluate
-  안에서는 Examples / Experiments / Queues / Scores 세그먼트로 나누고, 그 아래에
+  안에서는 Examples / Experiments 세그먼트로 나누고, 그 아래에
   어느 dataset을 보고 있는지 알리는 context bar를 둔다. dataset 안에 다시 탭을
   두지 않는다 — 같은 여정이 두 겹으로 갈라진다.
 - desktop content는 최대폭 없이 diagnostic evidence에 필요한 가로 공간을 사용한다.

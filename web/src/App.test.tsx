@@ -235,14 +235,14 @@ describe("V2 presentation", () => {
     expect(screen.getByRole("button", { name: "Overview" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Traces" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Evaluate" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Queues" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Scores" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Settings" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Evaluate" }));
-    // 기획서 05절: dataset 안에 다시 탭을 두지 않고 세그먼트 넷으로 편다.
+    // Evaluate 아래에는 dataset에 매달린 둘만 남는다.
     expect(screen.getByRole("button", { name: "Examples" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Experiments" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Queues" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Scores" })).toBeVisible();
 
     await user.click(screen.getByRole("button", { name: "Traces" }));
     await screen.findByRole("heading", { name: "Traces" });
@@ -374,7 +374,6 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(screen.getByRole("button", { name: "Scores" }));
     await screen.findByRole("button", { name: "+ New Score" });
     await user.click(screen.getByRole("button", { name: "+ New Score" }));
@@ -394,7 +393,6 @@ describe("V2 presentation", () => {
     const user = userEvent.setup();
     render(<App />);
 
-    await user.click(screen.getByRole("button", { name: "Evaluate" }));
     await user.click(screen.getByRole("button", { name: "Queues" }));
     await user.click(await screen.findByRole("button", { name: "+ New Queue" }));
     await user.type(screen.getByRole("textbox", { name: "이름" }), "릴리스 검토");
@@ -485,7 +483,7 @@ describe("V2 presentation", () => {
     ]);
   });
 
-  it("Evaluate는 세그먼트 넷이고 dataset context는 그 위에 남는다", async () => {
+  it("Evaluate는 세그먼트 둘이고 dataset context는 그 위에 남는다", async () => {
     const user = userEvent.setup();
     render(<App />);
 

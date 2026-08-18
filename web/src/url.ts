@@ -1,17 +1,19 @@
 import type { DashboardBucket } from "./api/types";
 
-export type AppView = "overview" | "traces" | "evaluate" | "settings";
+export type AppView =
+  | "overview"
+  | "traces"
+  | "evaluate"
+  | "queues"
+  | "scores"
+  | "settings";
 
 /**
- * Evaluate 안의 세그먼트. 기획서 05절대로 넷이다 — dataset 안에 다시 탭을 두면
- * 같은 여정이 두 겹으로 갈라진다. dataset 선택은 세그먼트가 아니라 상단의
- * context bar가 맡는다.
+ * Evaluate 안의 세그먼트. dataset에 매달린 것만 여기 남는다 — Queues와 Scores는
+ * dataset과 무관한 화면이라 top-level로 올렸다. dataset 선택은 세그먼트가
+ * 아니라 상단의 context bar가 맡는다.
  */
-export type EvaluateSection =
-  | "examples"
-  | "experiments"
-  | "queues"
-  | "scores";
+export type EvaluateSection = "examples" | "experiments";
 
 /**
  * 상대 시간 범위. `null`은 절대 구간(deep-link, 과거 특정 구간 조사)이고 그 동작은
@@ -79,6 +81,8 @@ export type AppUrlState = {
 const APP_VIEWS: readonly AppView[] = [
   "overview",
   "traces",
+  "scores",
+  "queues",
   "evaluate",
   "settings",
 ];
@@ -89,8 +93,6 @@ const DEFAULT_VIEW: AppView = "overview";
 const EVALUATE_SECTIONS: readonly EvaluateSection[] = [
   "examples",
   "experiments",
-  "queues",
-  "scores",
 ];
 
 /**
@@ -102,8 +104,6 @@ const LEGACY_VIEWS: Record<string, { view: AppView; section?: EvaluateSection }>
     // 재편 중 잠깐 쓰던 이름. Overview로 되돌렸다.
     insights: { view: "overview" },
     traces: { view: "traces" },
-    queues: { view: "evaluate", section: "queues" },
-    scores: { view: "evaluate", section: "scores" },
     datasets: { view: "evaluate", section: "examples" },
     data: { view: "settings" },
   };
@@ -115,6 +115,15 @@ const DASHBOARD_BUCKETS: readonly DashboardBucket[] = [
   "week",
   "month",
 ];
+/**
+ * 잠깐 Evaluate 세그먼트로 접혀 있던 값. dataset과 무관한 화면이라 top-level로
+ * 되돌렸고, 그 사이 공유된 link만 읽을 때 옮겨 준다.
+ */
+const LEGACY_SECTION_VIEWS: Record<string, AppView> = {
+  queues: "queues",
+  scores: "scores",
+};
+
 /**
  * 재편 이전의 `tab` 값. 세그먼트가 그 자리를 대신하므로 읽을 때만 옮겨 준다.
  * `compare`는 실제로 experiments 안에서 그려지던 화면이라 그쪽으로 접는다.
@@ -214,6 +223,11 @@ function readShell(params: URLSearchParams): {
     legacyTab ?? "examples",
   );
   if (raw !== null && APP_VIEWS.includes(raw as AppView)) {
+    // 잠시 Evaluate 세그먼트였던 값. 지금은 top-level 화면이다.
+    const promoted = LEGACY_SECTION_VIEWS[params.get("section") ?? ""];
+    if (raw === "evaluate" && promoted !== undefined) {
+      return { view: promoted, section };
+    }
     return { view: raw as AppView, section };
   }
   const legacy = raw === null ? undefined : LEGACY_VIEWS[raw];

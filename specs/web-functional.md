@@ -25,11 +25,15 @@ data 의미는 `specs/data-contract.md`가 우선한다.
 | --------- | ------------------------------------- | ------------------------------------------------- |
 | Traces    | Traces                                | 목록, 실행 graph, payload (3분할)                 |
 | Overview  | Overview                              | 기간 filter, chart board, 최근 trace              |
-| Evaluate  | Evaluation, Annotation Queues, Scores | Examples / Experiments / Queues / Scores 세그먼트 |
+| Scores    | Scores                                | score 목록, 생성/보관                             |
+| Queues    | Annotation Queues                     | 큐 목록, 라벨링                                   |
+| Evaluate  | Evaluation                            | Examples / Experiments 세그먼트                   |
 | Settings  | Local Data                            | 백업, 초기화                                      |
 
-- Evaluate의 세그먼트는 넷이다. dataset 안에 다시 탭을 두면 같은 여정이 두 겹으로
-  갈라지므로, Examples와 Experiments를 세그먼트로 올린다. 어느 dataset을 보고
+- Evaluate의 세그먼트는 dataset의 하위인 Examples와 Experiments 둘뿐이다. Queues와
+  Scores는 dataset과 무관한 화면이라 Evaluate 아래에 두면 dataset의 하위처럼 읽혀
+  top-level로 둔다. dataset 안에 다시 탭을 두면 같은 여정이 두 겹으로 갈라지므로,
+  Examples와 Experiments는 세그먼트로 올린다. 어느 dataset을 보고
   있는지는 상단의 dataset context bar가 계속 알리고, 거기서 다른 dataset으로
   바꾼다. dataset을 고르기 전에는 그 자리에 dataset 목록이 온다.
 - dataset을 가로지르는 experiment 목록은 지금 없는 표면이므로 이 재편에 포함하지

@@ -6,6 +6,15 @@
 
 ## [Unreleased]
 
+### 변경됨
+
+- 상단 navigation을 Overview / Traces / Scores / Queues / Evaluate / Settings로
+  다시 나눴습니다. Scores와 Annotation Queues는 dataset과 무관한 화면인데 Evaluate
+  안의 세그먼트로 묶여 있어 dataset의 하위처럼 읽혔습니다. Evaluate 아래에는
+  dataset에 매달린 Examples와 Experiments만 남습니다. 기존 링크는 `?view=queues`,
+  `?view=scores`는 물론 `?view=evaluate&section=queues|scores` 형태까지 새 화면으로
+  이어집니다
+
 ## [0.3.2] - 2026-08-04
 
 ### 추가됨
